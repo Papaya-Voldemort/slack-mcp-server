@@ -269,6 +269,30 @@ Fetches a CSV directory of all users in the workspace.
 - [Authentication Setup](docs/01-authentication-setup.md)
 - [Installation](docs/02-installation.md)
 - [Configuration and Usage](docs/03-configuration-and-usage.md)
+- [Ultra-Cheap Railway & Gemini Spark Setup Guide](docs/04-railway-gemini-cheap-setup.md)
+
+### Railway Deployment & Gemini Spark Setup
+
+To deploy Slack MCP Server on Railway and integrate with Gemini Spark / MCP Clients efficiently:
+
+1. **Deploy to Railway**:
+   - Connect your GitHub repository to Railway.
+   - Railway will detect `railway.json` and use the multi-stage `Dockerfile`.
+   - Set the required Slack token environment variables in Railway settings:
+     - `SLACK_MCP_XOXP_TOKEN` (or `SLACK_MCP_XOXC_TOKEN` + `SLACK_MCP_XOXD_TOKEN` / `SLACK_MCP_XOXB_TOKEN`)
+     - Optional security: `SLACK_MCP_API_KEY` to require a bearer token for client connections.
+   - Railway automatically assigns a `PORT` env var; the server binds to `0.0.0.0:$PORT` out of the box.
+
+2. **Ultra-Cheap / Low Memory Configuration**:
+   - To keep resource usage extremely low (sub-10MB RAM usage, ideal for free or low-cost Railway tiers):
+     - Pass the `--no-cache` flag or set `SLACK_MCP_ENABLED_TOOLS` to only the tools you need.
+     - Set `GOMEMLIMIT=128MiB` in Railway environment variables to keep Go memory usage constrained.
+
+3. **Gemini Spark Connection**:
+   - Gemini Spark and HTTP/SSE MCP clients can connect to your deployment URL:
+     - **SSE Transport**: `https://<your-railway-app>.up.railway.app/sse`
+     - **HTTP Transport**: `https://<your-railway-app>.up.railway.app/mcp` (when starting with `--transport http`)
+   - If `SLACK_MCP_API_KEY` is set, pass the authorization header `Authorization: Bearer <your-api-key>`.
 
 ### Environment Variables (Quick Reference)
 
@@ -278,8 +302,8 @@ Fetches a CSV directory of all users in the workspace.
 | `SLACK_MCP_XOXD_TOKEN`            | Yes*      | `nil`                     | Slack browser cookie `d` (`xoxd-...`)                                                                                                                                                                                                                                                     |
 | `SLACK_MCP_XOXP_TOKEN`            | Yes*      | `nil`                     | User OAuth token (`xoxp-...`) — alternative to xoxc/xoxd                                                                                                                                                                                                                                  |
 | `SLACK_MCP_XOXB_TOKEN`            | Yes*      | `nil`                     | Bot token (`xoxb-...`) — alternative to xoxp/xoxc/xoxd. Bot has limited access (invited channels only, no search)                                                                                                                                                                         |
-| `SLACK_MCP_PORT`                  | No        | `13080`                   | Port for the MCP server to listen on                                                                                                                                                                                                                                                      |
-| `SLACK_MCP_HOST`                  | No        | `127.0.0.1`               | Host for the MCP server to listen on                                                                                                                                                                                                                                                      |
+| `SLACK_MCP_PORT`                  | No        | `13080`                   | Port for the MCP server to listen on (falls back to `PORT` if provided, e.g. on Railway)                                                                                                                                                                                             |
+| `SLACK_MCP_HOST`                  | No        | `127.0.0.1`               | Host for the MCP server to listen on (defaults to `0.0.0.0` in Railway or container environments)                                                                                                                                                                                    |
 | `SLACK_MCP_API_KEY`               | No        | `nil`                     | Bearer token for SSE and HTTP transports                                                                                                                                                                                                                                                            |
 | `SLACK_MCP_PROXY`                 | No        | `nil`                     | Proxy URL for outgoing requests                                                                                                                                                                                                                                                           |
 | `SLACK_MCP_USER_AGENT`            | No        | `nil`                     | Custom User-Agent (for Enterprise Slack environments)                                                                                                                                                                                                                                     |

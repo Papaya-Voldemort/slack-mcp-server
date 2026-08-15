@@ -103,14 +103,8 @@ func main() {
 			)
 		}
 	case "sse":
-		host := os.Getenv("SLACK_MCP_HOST")
-		if host == "" {
-			host = defaultSseHost
-		}
-		port := os.Getenv("SLACK_MCP_PORT")
-		if port == "" {
-			port = strconv.Itoa(defaultSsePort)
-		}
+		host := getHost()
+		port := getPort()
 
 		sseServer := s.ServeSSE(":" + port)
 		logger.Info(
@@ -133,14 +127,8 @@ func main() {
 			)
 		}
 	case "http":
-		host := os.Getenv("SLACK_MCP_HOST")
-		if host == "" {
-			host = defaultSseHost
-		}
-		port := os.Getenv("SLACK_MCP_PORT")
-		if port == "" {
-			port = strconv.Itoa(defaultSsePort)
-		}
+		host := getHost()
+		port := getPort()
 
 		httpServer := s.ServeHTTP(":" + port)
 		logger.Info(
@@ -383,4 +371,24 @@ func getConsoleLevelEncoder(useColors bool) zapcore.LevelEncoder {
 		return zapcore.CapitalColorLevelEncoder
 	}
 	return zapcore.CapitalLevelEncoder
+}
+
+func getHost() string {
+	if host := os.Getenv("SLACK_MCP_HOST"); host != "" {
+		return host
+	}
+	if os.Getenv("RAILWAY_ENVIRONMENT") != "" || os.Getenv("RAILWAY_STATIC_URL") != "" || os.Getenv("PORT") != "" {
+		return "0.0.0.0"
+	}
+	return defaultSseHost
+}
+
+func getPort() string {
+	if port := os.Getenv("SLACK_MCP_PORT"); port != "" {
+		return port
+	}
+	if port := os.Getenv("PORT"); port != "" {
+		return port
+	}
+	return strconv.Itoa(defaultSsePort)
 }
