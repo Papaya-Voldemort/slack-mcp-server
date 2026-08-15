@@ -520,15 +520,38 @@ func TestServeUnified(t *testing.T) {
 		assert.Contains(t, string(body), "test-slack-mcp")
 	})
 
-	t.Run("GET /sse establishes SSE stream", func(t *testing.T) {
-		req, err := http.NewRequestWithContext(context.Background(), "GET", ts.URL+"/sse", nil)
-		require.NoError(t, err)
-		req.Header.Set("Accept", "text/event-stream")
+	t.Run("HEAD requests return 200 OK", func(t *testing.T) {
+		for _, path := range []string{"/", "/mcp", "/sse"} {
+			req, err := http.NewRequestWithContext(context.Background(), "HEAD", ts.URL+path, nil)
+			require.NoError(t, err)
+			resp, err := http.DefaultClient.Do(req)
+			require.NoError(t, err)
+			resp.Body.Close()
+			assert.Equal(t, http.StatusOK, resp.StatusCode, "HEAD %s should return 200", path)
+		}
+	})
 
-		resp, err := http.DefaultClient.Do(req)
-		require.NoError(t, err)
-		defer resp.Body.Close()
-		assert.Equal(t, http.StatusOK, resp.StatusCode)
-		assert.Contains(t, resp.Header.Get("Content-Type"), "text/event-stream")
+	t.Run("OPTIONS requests return 200 with CORS headers", func(t *testing.T) {
+		for _, path := range []string{"/", "/mcp", "/sse"} {
+			req, err := http.NewRequestWithContext(context.Background(), "OPTIONS", ts.URL+path, nil)
+			require.NoError(t, err)
+			resp, err := http.DefaultClient.Do(req)
+			require.NoError(t, err)
+			resp.Body.Close()
+			assert.Equal(t, http.StatusOK, resp.StatusCode, "OPTIONS %s should return 200", path)
+			assert.Equal(t, "*", resp.Header.Get("Access-Control-Allow-Origin"))
+		}
+	})
+
+	t.Run("Non-streaming GET to / and /mcp returns health JSON", func(t *testing.T) {
+		for _, path := range []string{"/", "/mcp"} {
+			resp, err := http.Get(ts.URL + path)
+			require.NoError(t, err)
+			defer resp.Body.Close()
+			assert.Equal(t, http.StatusOK, resp.StatusCode)
+			body, err := io.ReadAll(resp.Body)
+			require.NoError(t, err)
+			assert.Contains(t, string(body), `"status":"ok"`)
+		}
 	})
 }

@@ -708,9 +708,36 @@ func (s *MCPServer) ServeUnified(host, port string) *http.Server {
 	mux.Handle("/mcp", httpServerMcp)
 	mux.Handle("/", httpServerRoot)
 
+	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, HEAD, OPTIONS, PUT, DELETE")
+		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization, mcp-session-id, X-Requested-With, Accept")
+		w.Header().Set("Access-Control-Expose-Headers", "mcp-session-id, Content-Type")
+
+		if r.Method == http.MethodOptions {
+			w.WriteHeader(http.StatusOK)
+			return
+		}
+
+		if r.Method == http.MethodHead {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusOK)
+			return
+		}
+
+		if r.Method == http.MethodGet && (r.URL.Path == "/" || r.URL.Path == "/mcp") && !strings.Contains(r.Header.Get("Accept"), "text/event-stream") {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusOK)
+			w.Write([]byte(fmt.Sprintf(`{"status":"ok","name":"Slack MCP Server","version":"%s","transports":["streamable-http","sse"]}`+"\n", version.Version)))
+			return
+		}
+
+		mux.ServeHTTP(w, r)
+	})
+
 	return &http.Server{
 		Addr:    host + ":" + port,
-		Handler: mux,
+		Handler: handler,
 	}
 }
 
