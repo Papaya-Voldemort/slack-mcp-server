@@ -269,6 +269,7 @@ Fetches a CSV directory of all users in the workspace.
 - [Authentication Setup](docs/01-authentication-setup.md)
 - [Installation](docs/02-installation.md)
 - [Configuration and Usage](docs/03-configuration-and-usage.md)
+- [Ultra-Cheap Railway & Gemini Spark Setup Guide](docs/04-railway-gemini-cheap-setup.md)
 
 ### Railway Deployment & Gemini Spark Setup
 
