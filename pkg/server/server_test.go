@@ -5,7 +5,10 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"net/http"
+	"net/http/httptest"
 	"os"
+	"strings"
 	"testing"
 
 	"github.com/mark3labs/mcp-go/client"
@@ -480,4 +483,52 @@ func TestShouldAddTool_Matrix(t *testing.T) {
 			assert.Equal(t, tt.expected, result)
 		})
 	}
+}
+
+func TestServeUnified(t *testing.T) {
+	logger := zap.NewNop()
+	s := &MCPServer{
+		server: server.NewMCPServer("test-slack-mcp", "1.0.0"),
+		logger: logger,
+	}
+
+	srv := s.ServeUnified("127.0.0.1", "0")
+	ts := httptest.NewServer(srv.Handler)
+	defer ts.Close()
+
+	initPayload := `{"jsonrpc":"2.0","method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"gemini-test","version":"1.0"}},"id":1}`
+
+	t.Run("POST to root / responds with JSON-RPC initialize result", func(t *testing.T) {
+		resp, err := http.Post(ts.URL+"/", "application/json", strings.NewReader(initPayload))
+		require.NoError(t, err)
+		defer resp.Body.Close()
+		assert.Equal(t, http.StatusOK, resp.StatusCode)
+
+		body, err := io.ReadAll(resp.Body)
+		require.NoError(t, err)
+		assert.Contains(t, string(body), "test-slack-mcp")
+	})
+
+	t.Run("POST to /mcp responds with JSON-RPC initialize result", func(t *testing.T) {
+		resp, err := http.Post(ts.URL+"/mcp", "application/json", strings.NewReader(initPayload))
+		require.NoError(t, err)
+		defer resp.Body.Close()
+		assert.Equal(t, http.StatusOK, resp.StatusCode)
+
+		body, err := io.ReadAll(resp.Body)
+		require.NoError(t, err)
+		assert.Contains(t, string(body), "test-slack-mcp")
+	})
+
+	t.Run("GET /sse establishes SSE stream", func(t *testing.T) {
+		req, err := http.NewRequestWithContext(context.Background(), "GET", ts.URL+"/sse", nil)
+		require.NoError(t, err)
+		req.Header.Set("Accept", "text/event-stream")
+
+		resp, err := http.DefaultClient.Do(req)
+		require.NoError(t, err)
+		defer resp.Body.Close()
+		assert.Equal(t, http.StatusOK, resp.StatusCode)
+		assert.Contains(t, resp.Header.Get("Content-Type"), "text/event-stream")
+	})
 }

@@ -675,6 +675,45 @@ func (s *MCPServer) ServeHTTP(addr string) *server.StreamableHTTPServer {
 	)
 }
 
+func (s *MCPServer) ServeUnified(host, port string) *http.Server {
+	s.logger.Info("Creating unified HTTP/SSE server",
+		zap.String("context", "console"),
+		zap.String("version", version.Version),
+		zap.String("build_time", version.BuildTime),
+		zap.String("commit_hash", version.CommitHash),
+		zap.String("host", host),
+		zap.String("port", port),
+	)
+
+	mux := http.NewServeMux()
+
+	sseServer := s.ServeSSE(":" + port)
+	httpServerRoot := server.NewStreamableHTTPServer(s.server,
+		server.WithEndpointPath("/"),
+		server.WithHTTPContextFunc(func(ctx context.Context, r *http.Request) context.Context {
+			ctx = auth.AuthFromRequest(s.logger)(ctx, r)
+			return ctx
+		}),
+	)
+	httpServerMcp := server.NewStreamableHTTPServer(s.server,
+		server.WithEndpointPath("/mcp"),
+		server.WithHTTPContextFunc(func(ctx context.Context, r *http.Request) context.Context {
+			ctx = auth.AuthFromRequest(s.logger)(ctx, r)
+			return ctx
+		}),
+	)
+
+	mux.Handle("/sse", sseServer.SSEHandler())
+	mux.Handle("/message", sseServer.MessageHandler())
+	mux.Handle("/mcp", httpServerMcp)
+	mux.Handle("/", httpServerRoot)
+
+	return &http.Server{
+		Addr:    host + ":" + port,
+		Handler: mux,
+	}
+}
+
 func (s *MCPServer) ServeStdio() error {
 	s.logger.Info("Starting STDIO server",
 		zap.String("version", version.Version),

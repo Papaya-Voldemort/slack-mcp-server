@@ -4,6 +4,7 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"net/http"
 	"os"
 	"strconv"
 	"strings"
@@ -102,13 +103,13 @@ func main() {
 				zap.Error(err),
 			)
 		}
-	case "sse":
+	case "sse", "http":
 		host := getHost()
 		port := getPort()
 
-		sseServer := s.ServeSSE(":" + port)
+		srv := s.ServeUnified(host, port)
 		logger.Info(
-			fmt.Sprintf("SSE server listening on %s", fmt.Sprintf("%s:%s/sse", host, port)),
+			fmt.Sprintf("Server listening on %s (supports /, /mcp, /sse, /message)", fmt.Sprintf("%s:%s", host, port)),
 			zap.String("context", "console"),
 			zap.String("host", host),
 			zap.String("port", port),
@@ -120,31 +121,7 @@ func main() {
 			)
 		}
 
-		if err := sseServer.Start(host + ":" + port); err != nil {
-			logger.Fatal("Server error",
-				zap.String("context", "console"),
-				zap.Error(err),
-			)
-		}
-	case "http":
-		host := getHost()
-		port := getPort()
-
-		httpServer := s.ServeHTTP(":" + port)
-		logger.Info(
-			fmt.Sprintf("HTTP server listening on %s", fmt.Sprintf("%s:%s", host, port)),
-			zap.String("context", "console"),
-			zap.String("host", host),
-			zap.String("port", port),
-		)
-
-		if ready, _ := p.IsReady(); !ready {
-			logger.Info("Slack MCP Server is still warming up caches",
-				zap.String("context", "console"),
-			)
-		}
-
-		if err := httpServer.Start(host + ":" + port); err != nil {
+		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			logger.Fatal("Server error",
 				zap.String("context", "console"),
 				zap.Error(err),
