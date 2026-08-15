@@ -36,6 +36,7 @@ COPY --from=build /go/bin/mcp-server /usr/local/bin/mcp-server
 WORKDIR /app
 
 ENV SLACK_MCP_HOST=0.0.0.0
+ENV PORT=3001
 
 EXPOSE 3001
 
